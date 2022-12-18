@@ -14,7 +14,7 @@ T Pivot(T* first, T* last, Compare comp)
         return *last;
 }
 
-template<typename T, typename Compare>
+template<typename T, typename Compare>00
 void QuickSort(T *first, T *last, Compare comp)
 {
     while(first < last)
