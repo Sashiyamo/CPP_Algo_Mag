@@ -27,7 +27,17 @@ public:
         arrSize = copy.arrSize;
         array = (T *) (malloc(capacity * sizeof(T)));
         for (int i = 0; i < arrSize; i++)
-            array[i] = copy.array[i];
+            new (array + i) T(copy.array[i]);
+    }
+
+    Array(Array<T> &&copy) {
+        capacity = copy.capacity;
+        arrSize = copy.arrSize;
+        array = copy.array;
+
+        copy.array = nullptr;
+        copy.arrSize = 0;
+        copy.capacity = 0;
     }
 
     ~Array() {
@@ -36,31 +46,56 @@ public:
         free(array);
     }
 
-    void insert(const T &value) {
+    int insert(const T &value) {
         insert(arrSize, value);
     }
 
-    void insert(int index, const T &value) {
-        if (arrSize == capacity) {
+    int insert(int index, const T &value) {
+        if (arrSize >= capacity) {
             capacity = capacity ? capacity * CAP_SCALE : DEFAULT_CAP;
             T *newArray = (T *) (malloc(capacity * sizeof(T)));
 
-            std::move(array + index, array + arrSize, newArray);
+            for (int i = 0; i < arrSize; i++) {
+                new (newArray + i) T(std::move(array[i]));
+            }
+            new (newArray + index) T(value);
+
+            for (int i = index + 1; i < arrSize + 1; i++) {
+                new (newArray + i) T(std::move(array[i - 1]));
+            }
+
+            for (int i = 0; i < arrSize; i++) {
+                array[i].~T();
+            }
 
             free(array);
             array = newArray;
         }
 
-        std::move(array + index, array + arrSize, array + index + 1);
+        if (index < arrSize) {
+            for (int i = arrSize; i > index; i--){
+                new(array + i) T(std::move(array[i - 1]));
+                array[i - 1].~T();
+            }
+
+            new(array + index) T(value);
+        }
 
         arrSize++;
-        array[index] = value;
+
+        return index;
     }
 
     void remove(int index) {
-        array[index].~T();
-        std::move(array + index + 1, array + arrSize, array + index);
-        arrSize--;
+        if (index >= arrSize || index < 0)
+            return;
+
+        for (int i = index; i < arrSize - 1; i++) {
+            array[i].~T();
+            new (array + i) T(std::move(array[i + 1]));
+        }
+        array[arrSize - 1].~T();
+        arrSize -= 1;
     }
 
     int capacity_() {
@@ -80,18 +115,29 @@ public:
     }
 
     Array<T> &operator=(const Array<T> &comp) {
-        for (int i = 0; i < arrSize; i++)
-            array[i].~T();
-        free(array);
-
-        capacity = comp.capacity;
-        arrSize = comp.arrSize;
-        array = (T *) (malloc(capacity * sizeof(T)));
-        for (int i = 0; i < arrSize; i++)
-            array[i] = comp.array[i];
+        if (this != &comp) {
+            Array<T> temp(comp);
+            swap(temp);
+        }
 
         return *this;
     }
+
+    Array<T> &operator=(const Array<T> &&comp) {
+        if (this != &comp) {
+            swap(comp);
+        }
+
+        return *this;
+    }
+
+    void swap(Array<T>& copy) {
+        std::swap(capacity, copy.capacity);
+        std::swap(arrSize, copy.arrSize);
+        std::swap(array, copy.array);
+    }
+
+
 
     class Iterator
     {
